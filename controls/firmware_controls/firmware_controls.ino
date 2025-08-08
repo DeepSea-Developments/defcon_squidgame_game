@@ -199,7 +199,7 @@ void serialTask(void *pvParameters)
               uint8_t r = colorArray[0];
               uint8_t g = colorArray[1];
               uint8_t b = colorArray[2];
-              float factor = 0.4;
+              float factor = 1;
               // Store darkened components for TFT
               playerR = (uint8_t)(r * factor);
               playerG = (uint8_t)(g * factor);
