@@ -81,7 +81,11 @@ async def register_client(websocket):
 async def broadcast(message):
     """Broadcasts a message to all connected websocket clients."""
     if connected_clients:
-        await asyncio.wait([client.send(message) for client in connected_clients])
+        # Create tasks explicitly to avoid the coroutine error
+        tasks = [asyncio.create_task(client.send(message)) for client in connected_clients]
+        if tasks:
+            await asyncio.wait(tasks)
+        
 
 async def read_from_serial(port_address):
     """Reads data from a serial port and broadcasts it."""
@@ -134,7 +138,7 @@ async def com_port_scanner():
         print("----------------------------\n")
 
         # Filter ports based on description only
-        esp_ports = {p.device for p in available_ports if "Serial" in (p.description or "")}
+        esp_ports = {p.device for p in available_ports if "serial" in (p.description.lower())}
         
         # Check for new connections
         for port in esp_ports:

@@ -2,6 +2,7 @@
 #include <Wire.h>
 #include <ADXL345.h>
 #include <Adafruit_NeoPixel.h>
+#include "arduinoFFT.h"
 
 
 // uncomment a library for display driver
@@ -95,121 +96,75 @@ void setup() {
 }
 
 // the loop function runs over and over again forever
-// Variables for shake detection
-const int SAMPLE_WINDOW = 50;  // Number of samples to consider for frequency calculation
-float prevMagnitudes[SAMPLE_WINDOW] = {0};  // Array to store previous magnitudes
+// Variables for FFT-based shake detection
+const uint16_t FFT_SAMPLES = 64;  // Must be power of 2 for FFT
+double vReal[FFT_SAMPLES];
+double vImag[FFT_SAMPLES];
 int sampleIndex = 0;
-unsigned long lastShakeTime = 0;
-int crossingCount = 0;
 float currentScore = 0;
 float baselineMagnitude = 0;  // Running average for still position
 bool baselineInitialized = false;
-const float MAGNITUDE_WEIGHT = 0.6;  // Weight for magnitude component in scoring
-const float FREQUENCY_WEIGHT = 0.4;  // Weight for frequency component in scoring
-const float SHAKE_THRESHOLD = 20;  // Minimum deviation from baseline to be considered a shake
+const float SAMPLING_FREQUENCY = 50;  // Hz (based on 20ms delay in main loop)
+
+// FFT object
+ArduinoFFT<double> FFT = ArduinoFFT<double>(vReal, vImag, FFT_SAMPLES, SAMPLING_FREQUENCY);
 
 // Score accumulation variables
 float accumulatedScore = 0;
 bool lastButtonState = HIGH;  // Assuming button is pulled high when not pressed
 
-// Calculate shake score based on accelerometer data with baseline correction and frequency detection
-float calculateShakeScore(int x, int y, int z) {
-  // Calculate proper vector magnitude
-  float magnitude = sqrt(x*x + y*y + z*z);
+
+
+
+// Calculate shake score based on FFT frequency analysis
+int calculateShakeScore(int x, int y, int z) 
+{
+  int gravity_offset = 250;
   
-  // Initialize or update baseline (running average of still position)
-  if (!baselineInitialized) {
-    baselineMagnitude = magnitude;
-    baselineInitialized = true;
-  } else {
-    // Slowly adjust baseline (0.01 = 1% per sample)
-    baselineMagnitude = baselineMagnitude * 0.99 + magnitude * 0.01;
-  }
+  currentScore = abs(x) + abs(y) + abs(z) - gravity_offset;
+  currentScore =  abs(currentScore);
+  // Return previous score if buffer not full yet
+
+  if(currentScore < 200)
+    return 0;
+  else if (currentScore < 400)
+    return 1;
+  else if ( currentScore < 600)
+    return 3;
+  else if (currentScore < 900)
+    return 4;
+  else if (currentScore < 1200)
+    return 5;
   
-  // Calculate deviation from baseline to remove static offset
-  float deviation = abs(magnitude - baselineMagnitude);
-  
-  // Store current deviation in circular buffer
-  prevMagnitudes[sampleIndex] = deviation;
-  sampleIndex = (sampleIndex + 1) % SAMPLE_WINDOW;
-  
-  // Calculate frequency component by counting zero crossings
-  crossingCount = 0;
-  float avgDeviation = 0;
-  for (int i = 0; i < SAMPLE_WINDOW - 1; i++) {
-    avgDeviation += prevMagnitudes[i];
-    // Count crossings above/below average
-    if ((prevMagnitudes[i] > SHAKE_THRESHOLD && prevMagnitudes[i+1] < SHAKE_THRESHOLD) ||
-        (prevMagnitudes[i] < SHAKE_THRESHOLD && prevMagnitudes[i+1] > SHAKE_THRESHOLD)) {
-      crossingCount++;
+  return 6;
+
+  return currentScore;
+}
+
+
+
+void loop() 
+{
+    int x, y, z;
+    adxl.readXYZ(&x, &y, &z);
+
+    float currentScore = calculateShakeScore(x, y, z);
+
+    // Throttle serial output
+    static unsigned long lastPrintTime = 0;
+    if (millis() - lastPrintTime > 100) {
+      lastPrintTime = millis();
+      // Only print score on "green light", otherwise print 0
+      if (1) {//isGreenLight
+        float x = currentScore / 10;
+        if (x < 1.6)
+          x = 0;
+        Serial.println(currentScore);
+      } else {
+        Serial.println(currentScore);
+      }
     }
-  }
-  avgDeviation /= SAMPLE_WINDOW;
-  
-  // Calculate magnitude score (0-100 based on deviation strength)
-  float magnitudeScore = constrain(map(deviation, 0, 200, 0, 100), 0, 100);
-  
-  // Calculate frequency score (0-100 based on shake frequency)
-  float frequencyScore = constrain(map(crossingCount, 0, 25, 0, 100), 0, 100);
-  
-  // Combine magnitude and frequency with weights
-  float combinedScore = (magnitudeScore * MAGNITUDE_WEIGHT) + (frequencyScore * FREQUENCY_WEIGHT);
-  
-  return combinedScore;
-}
-
-// Function to update accumulated score, reset on right button press
-void updateAccumulatedScore() {
-  // Read current button state
-  bool currentButtonState = digitalRead(BUTTON_R);
-  
-  // Check for button press (transition from HIGH to LOW)
-  if (lastButtonState == HIGH && currentButtonState == LOW) {
-    // Reset accumulated score on right button press
-    accumulatedScore = 0;
-  }
-  
-  // Update button state for next iteration
-  lastButtonState = currentButtonState;
-  
-  // Add current shake score to accumulated total
-  accumulatedScore += currentScore;
-}
-
-void loop() {
-    // digitalWrite(PIN, HIGH);  // turn the LED on (HIGH is the voltage level)
-    // delay(1000);                      // wait for a second
-    // digitalWrite(PIN, LOW);   // turn the LED off by making the voltage LOW
-    // delay(1000);                      // wait for a second
-
-    lv_timer_handler();  //let the GUI do its work 
-    // colorWipe(strip.Color(255, 0, 0), 50); // Red
-
-    delay( 20 );
-
-    //Boring accelerometer stuff   
-	int x,y,z;  
-	adxl.readXYZ(&x, &y, &z); //read the accelerometer values and store them in variables  x,y,z
-	// Output x,y,z values 
-	// Serial.print("values of X , Y , Z: ");
-	// Serial.print(x);
-	// Serial.print(" , ");
-	// Serial.print(y);
-	// Serial.print(" , ");
-	// Serial.print(z);
-	// Serial.print(" | Score: ");
-	
-	// Calculate current shake score
-	currentScore = calculateShakeScore(x, y, z);
-	
-	// Update accumulated score and handle button press
-	updateAccumulatedScore();
-	
-	// Print for Serial Plotter (tab-separated values)
-	Serial.print(currentScore);
-	// Serial.print("\t");
-	// Serial.println(accumulatedScore);
-
+    delay(10);
 }
 
 
