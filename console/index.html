@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Squid Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        /* Custom CSS for animations and card effects */
+        .font-inter {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Body background styling for the image */
+        body {
+            background-image: url('assets/background.jfif'); /* Local background image */
+            background-size: cover; /* Cover the entire area */
+            background-position: center; /* Center the image */
+            background-repeat: no-repeat; /* Do not repeat the image */
+            background-color: #000000; /* Black fill if image doesn't cover fully or is loading */
+            background-attachment: fixed; /* Keep background fixed when scrolling (optional, but good for full-screen) */
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* New floating animation for cards */
+        @keyframes floatEffect {
+            0% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-10px); /* Move up slightly */
+            }
+            100% {
+                transform: translateY(0px);
+            }
+        }
+
+        /* Jumping animation for player icons on track */
+        @keyframes jumpEffect {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-30px); /* Make it jump higher */
+            }
+        }
+
+        @keyframes goAnimation {
+            0% {
+                opacity: 0;
+                transform: scale(0.5);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.2);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(2);
+            }
+        }
+
+        .animate-fade-in-down {
+            animation: fadeInDown 1s ease-out forwards;
+        }
+
+        .animate-fade-in-up {
+            animation: fadeInUp 0.8s ease-out forwards;
+        }
+
+        /* Apply the floating animation after initial fade-in */
+        .animate-float {
+            animation: floatEffect 3s ease-in-out infinite; /* Smooth, continuous float */
+        }
+
+        /* Apply the jumping animation to the class */
+        .animate-jump {
+            animation: jumpEffect 0.8s ease-out infinite alternate; /* Reduced speed by changing duration to 0.8s */
+        }
+
+        .animate-go {
+            animation: goAnimation 1s ease-out forwards;
+        }
+
+        /* Card specific styles */
+        .perspective-1000 {
+            perspective: 1000px; /* Defines the 3D space for the flip */
+        }
+
+        .transform-style-3d {
+            transform-style: preserve-3d; /* Ensures children are positioned in 3D space */
+        }
+
+        .backface-hidden {
+            backface-visibility: hidden; /* Hides the back of the element when rotated */
+        }
+
+        .card-inner {
+            transition: transform 0.7s ease-in-out; /* Smooth transition for the flip */
+            transform-origin: center; /* Ensure rotation is from the center */
+        }
+
+        /* Styles for the front and back faces */
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden; /* Hide the back of each face */
+            transition: transform 0.7s ease-in-out; /* Smooth transition for face rotation */
+            display: flex; /* Use flexbox for content alignment */
+            align-items: center;
+            justify-content: center;
+            overflow: hidden; /* Hide overflowing content, especially images */
+        }
+
+        /* Initial state of the card faces (cards faced down by default) */
+        .card-front {
+            transform: rotateY(180deg); /* Front face initially rotated away */
+        }
+
+        .card-back {
+            transform: rotateY(0deg); /* Back face initially visible */
+        }
+
+        /* State when the card is flipped (on hover) */
+        .flipped .card-front {
+            transform: rotateY(0deg); /* Front face rotates into view */
+        }
+
+        .flipped .card-back {
+            transform: rotateY(-180deg); /* Back face rotates away */
+        }
+
+        /* Image styling within cards */
+        .card-face img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Cover the area, cropping if necessary */
+            border-radius: inherit; /* Inherit border-radius from parent face */
+        }
+
+        /* Traffic Light Styles */
+        .light-bar {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            width: 50%; /* Half width for left/right */
+            opacity: 0; /* Initially hidden */
+            transition: opacity 0.5s ease-in-out;
+            z-index: 10; /* Ensure bars are above game content but below timers/GO! */
+        }
+        .light-bar.active {
+            opacity: 1; /* Visible when active */
+        }
+        .light-bar.red-color {
+            background-color: #EF4444; /* Tailwind red-500 */
+            left: 0;
+        }
+        .light-bar.green-color {
+            background-color: #22C55E; /* Tailwind green-500 */
+            right: 0;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-900 text-white flex flex-col items-center font-inter">
+
+    <div id="main-menu-screen" class="min-h-screen w-full flex flex-col items-center justify-center pt-24">
+        <h1 class="text-6xl md:text-8xl lg:text-9xl font-extrabold text-red-600 text-center drop-shadow-lg animate-fade-in-down bg-black bg-opacity-50 p-4 rounded-lg mt-12">
+            SQUID GAME
+        </h1>
+
+        <div id="game-cards-container" class="flex flex-row justify-center items-center gap-8 w-full max-w-6xl pb-4 overflow-x-hidden flex-grow pt-20">
+            </div>
+
+        <div class="flex flex-row justify-center items-center gap-8 p-4 mt-auto">
+            <img src="assets/sponsor1.png" alt="Sponsor 1" class="w-24 h-24 rounded-full shadow-lg object-contain bg-white p-2" onerror="this.src='https://placehold.co/96x96/FFFFFF/000000?text=S1'">
+            <img src="assets/sponsor2.png" alt="Sponsor 2" class="w-24 h-24 rounded-full shadow-lg object-contain bg-white p-2" onerror="this.src='https://placehold.co/96x96/FFFFFF/000000?text=S2'">
+            <img src="assets/sponsor3.png" alt="Sponsor 3" class="w-24 h-24 rounded-full shadow-lg object-contain bg-white p-2" onerror="this.src='https://placehold.co/96x96/FFFFFF/000000?text=S3'">
+        </div>
+    </div>
+
+    <div id="game-lobby-screen" class="min-h-screen w-full flex flex-col items-center p-4 hidden">
+        <div class="w-full flex flex-col md:flex-row md:justify-between md:items-start z-10 pt-4 px-4">
+            <div>
+                <h1 id="lobby-game-title" class="text-4xl md:text-5xl lg:text-6xl font-extrabold text-red-600 drop-shadow-lg bg-black bg-opacity-50 p-3 rounded-lg">
+                    </h1>
+                <p id="lobby-game-description" class="text-lg text-gray-300 mt-2 ml-1">
+                    </p>
+            </div>
+            <div class="flex items-center space-x-2 self-end md:self-start mt-4 md:mt-0">
+                <button id="stop-game-button" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-300">
+                    Stop Game
+                </button>
+                <button id="start-game-button" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-300 hidden">
+                    Start Game
+                </button>
+                <button id="back-button" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-300">
+                    Back
+                </button>
+            </div>
+        </div>
+
+        <div class="flex flex-col items-center justify-center flex-grow w-full mt-8 md:mt-12">
+            <div id="game-preview-section" class="flex flex-col items-center justify-between bg-gray-800 bg-opacity-75 p-6 rounded-xl shadow-lg w-full max-w-full h-full">
+                <h2 class="text-3xl font-bold text-white mb-6">Game Preview</h2>
+
+                <div id="game-content-area" class="relative w-full flex-grow flex flex-col items-center justify-start bg-gray-900 rounded-lg p-4">
+                    <div id="red-light-bar" class="light-bar red-color active"></div>
+                    <div id="green-light-bar" class="light-bar green-color"></div>
+
+                    <div id="countdown-timer" class="text-white text-5xl font-bold mb-4 z-20"></div>
+                    <div id="go-animation-text" class="absolute inset-0 flex items-center justify-center text-red-600 text-9xl font-extrabold hidden z-20">GO!</div>
+                    <div id="player-sliders-container" class="flex flex-col justify-center space-y-4 w-full h-full z-20">
+                        </div>
+                     <div id="bomb-countdown-timer" class="absolute top-4 right-4 text-white text-3xl font-bold hidden z-20 bg-black bg-opacity-50 p-2 rounded-lg"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Data for each game card
+            const games = [
+                {
+                    name: 'Red Light, Green Light',
+                    description: 'Run when the doll is not looking!',
+                    frontImage: 'assets/red_light_front.webp', // Local path for front image
+                    backImage: 'assets/cards_back.jfif' // Local path for back image
+                },
+                {
+                    name: 'Dalgona',
+                    description: 'Carve out the shape without breaking it!',
+                    frontImage: 'assets/dalgona_front.jpg', // Local path for front image
+                    backImage: 'assets/cards_back.jfif' // Local path for back image
+                },
+                {
+                    name: 'Rock Paper Scissors Minus One',
+                    description: 'The last one standing wins!',
+                    frontImage: 'assets/rps_minus_one_front.jfif', // Local path for front image
+                    backImage: 'assets/cards_back.jfif' // Local path for back image
+                },
+            ];
+
+            // Get references to screen elements
+            const mainMenuScreen = document.getElementById('main-menu-screen');
+            const gameLobbyScreen = document.getElementById('game-lobby-screen');
+            const lobbyGameTitle = document.getElementById('lobby-game-title');
+            const lobbyGameDescription = document.getElementById('lobby-game-description');
+            const backButton = document.getElementById('back-button');
+            const stopGameButton = document.getElementById('stop-game-button');
+            const startGameButton = document.getElementById('start-game-button');
+            const gameContentArea = document.getElementById('game-content-area');
+            const playerSlidersContainer = document.getElementById('player-sliders-container');
+            const redLightBar = document.getElementById('red-light-bar');
+            const greenLightBar = document.getElementById('green-light-bar');
+            const countdownTimer = document.getElementById('countdown-timer');
+            const goAnimationText = document.getElementById('go-animation-text');
+            const bombCountdownTimer = document.getElementById('bomb-countdown-timer');
+            
+            // Sample players data (up to 4)
+            const connectedPlayers = [
+                { id: 1, name: 'Player 1', icon: 'assets/player1.jfif', deadIcon: 'assets/dead_player.jfif', isDead: false, progress: 0 },
+                { id: 2, name: 'Player 2', icon: 'assets/player2.jfif', deadIcon: 'assets/dead_player.jfif', isDead: false, progress: 0 },
+                { id: 3, name: 'Player 3', icon: 'assets/player3.png', deadIcon: 'assets/dead_player.jfif', isDead: false, progress: 0 },
+                { id: 4, name: 'Player 4', icon: 'assets/player4.jfif', deadIcon: 'assets/dead_player.jfif', isDead: false, progress: 0 }
+            ];
+
+            // Define slider colors
+            const sliderColors = ['#3B82F6', '#EF4444', '#A855F7', '#F59E0B']; // Blue, Red, Purple, Yellow
+
+            let gameLoopInterval;
+            let countdownInterval; 
+            let redGreenCycleInterval;
+            let bombCountdownInterval;
+            let redLightTimestamp = 0;
+            const gracePeriod = 500; // 150ms grace period
+            let isMovingAllowed = false; // Global flag to control player movement
+            let isGameStopped = false; // Global flag for stop/start functionality
+            let lastSentPlayerState = {}; // Cache for last sent player state to avoid redundant messages
+
+            // --- WebSocket for Game Server Communication ---
+            let socket;
+
+            function connectWebSocket() {
+                socket = new WebSocket('ws://localhost:8765');
+
+                socket.onopen = function(event) {
+                    console.log("WebSocket connection established.");
+                };
+
+                socket.onmessage = function(event) {
+                    console.log("RECV from WebSocket:", event.data);
+                    try {
+                        const message = JSON.parse(event.data);
+                        if (message.hasOwnProperty('player') && message.hasOwnProperty('data')) {
+                            const playerId = parseInt(message.player, 10);
+                            const movementPercentage = parseFloat(message.data);
+
+                            if (!isNaN(playerId) && !isNaN(movementPercentage)) {
+                                const player = connectedPlayers.find(p => p.id === playerId);
+                                if (player) {
+                                    updatePlayerProgress(player.id, movementPercentage);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error("Error parsing incoming JSON:", error);
+                    }
+                };
+
+                socket.onclose = function(event) {
+                    console.log("WebSocket connection closed. Attempting to reconnect...");
+                    setTimeout(connectWebSocket, 3000); // Try to reconnect every 3 seconds
+                };
+
+                socket.onerror = function(error) {
+                    console.error("WebSocket error:", error);
+                };
+            }
+
+            // Function to send JSON data to the WebSocket server
+            function sendWebSocketMessage(payload) {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    const message = JSON.stringify(payload);
+                    console.log("SEND to WebSocket:", message);
+                    socket.send(message);
+                } else {
+                    console.error("WebSocket is not connected.");
+                }
+            }
+            
+            // Helper function to convert HEX color to an RGB array
+            function hexToRgb(hex) {
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                return result ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)] : null;
+            }
+
+            // Sends a message for a single player with their current state, if it has changed.
+            function sendPlayerStateUpdate(player) {
+                // If the player is already marked as eliminated and we have a record of sending that, do nothing further.
+                const lastPayload = lastSentPlayerState[player.id];
+                if (player.isDead && lastPayload && lastPayload.status === 'eliminated') {
+                    return; // Avoid sending repeated "eliminated" status.
+                }
+
+                const lightStatus = isMovingAllowed ? 'green' : 'red';
+                const playerIndex = connectedPlayers.findIndex(p => p.id === player.id);
+                const playerColorHex = sliderColors[playerIndex % sliderColors.length];
+                const playerColorRGB = hexToRgb(playerColorHex);
+
+                const currentPayload = {
+                    light: lightStatus,
+                    player_id: player.id,
+                    progress: Math.round(player.progress),
+                    status: player.isDead ? "eliminated" : "playing",
+                    player_color: playerColorRGB || [255, 255, 255]
+                };
+
+                // Compare the stringified versions of the objects to prevent sending redundant data.
+                if (JSON.stringify(currentPayload) !== JSON.stringify(lastPayload)) {
+                    sendWebSocketMessage(currentPayload);
+                    lastSentPlayerState[player.id] = currentPayload; // Cache the latest sent state.
+                }
+            }
+
+            // Function to format time in MM:SS
+            function formatTime(seconds) {
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = seconds % 60;
+                const formattedMinutes = String(minutes).padStart(2, '0');
+                const formattedSeconds = String(remainingSeconds).padStart(2, '0');
+                return `${formattedMinutes}:${formattedSeconds}`;
+            }
+
+            // Function to populate player race sliders
+            function populatePlayerSliders() {
+                playerSlidersContainer.innerHTML = ''; // Clear existing sliders
+                connectedPlayers.forEach((player, index) => {
+                    const sliderWrapper = document.createElement('div');
+                    sliderWrapper.className = "flex items-center space-x-4 w-full";
+
+                    const playerInfo = document.createElement('div');
+                    playerInfo.className = "flex flex-col items-center flex-shrink-0 w-24";
+                    playerInfo.innerHTML = `
+                        <img src="${player.isDead ? player.deadIcon : player.icon}" alt="${player.name} Icon" class="w-16 h-16 rounded-full border-2 border-red-600 object-cover mb-1" onerror="this.src='https://placehold.co/64x64/FF0000/FFFFFF?text=P${player.id}'">
+                        <span class="text-base font-semibold text-white text-center">${player.name}</span>
+                    `;
+
+                    const trackContainer = document.createElement('div');
+                    trackContainer.className = "flex-grow h-10 rounded-full relative border-2 border-gray-500";
+                    trackContainer.style.backgroundImage = `repeating-linear-gradient(90deg, transparent, transparent 10px, rgba(255,255,255,0.2) 10px, rgba(255,255,255,0.2) 20px)`;
+                    
+                    const progressBar = document.createElement('div');
+                    progressBar.id = `player-progress-${player.id}`;
+                    progressBar.className = "h-full rounded-full transition-all duration-100 ease-linear";
+                    progressBar.style.backgroundColor = sliderColors[index % sliderColors.length];
+                    progressBar.style.width = `${player.progress}%`;
+
+                    const playerIconOnTrack = document.createElement('img');
+                    playerIconOnTrack.id = `player-icon-${player.id}`;
+                    playerIconOnTrack.src = player.isDead ? player.deadIcon : player.icon;
+                    playerIconOnTrack.alt = `${player.name} Icon`;
+                    playerIconOnTrack.className = "absolute top-1/2 -translate-y-1/2 w-12 h-12 rounded-full border-2 border-white object-cover transition-all duration-100 ease-linear";
+                    playerIconOnTrack.style.left = `${player.progress}%`;
+                    playerIconOnTrack.onerror = function() {
+                        this.src = `https://placehold.co/48x48/FF0000/FFFFFF?text=P${player.id}`;
+                    };
+
+                    trackContainer.appendChild(progressBar);
+                    trackContainer.appendChild(playerIconOnTrack);
+                    sliderWrapper.appendChild(playerInfo);
+                    sliderWrapper.appendChild(trackContainer);
+                    playerSlidersContainer.appendChild(sliderWrapper);
+                });
+            }
+
+            function updatePlayerProgress(playerId, increment) {
+                 const player = connectedPlayers.find(p => p.id === playerId);
+                 if (!player || player.isDead || player.progress >= 100) return;
+
+                 const oldProgress = player.progress;
+                 const oldIsDead = player.isDead;
+
+                 if (isMovingAllowed || Date.now() - redLightTimestamp < gracePeriod) {
+                    if(increment > 0) {
+                        player.progress += increment;
+                        if (player.progress > 100) player.progress = 100;
+                    }
+                 } else if (increment > 0) {
+                    player.isDead = true;
+                 }
+
+                 updatePlayerUI(player);
+
+                 if (player.progress !== oldProgress || player.isDead !== oldIsDead) {
+                    sendPlayerStateUpdate(player);
+                 }
+            }
+
+            function updatePlayerUI(player) {
+                const playerIconOnTrack = document.getElementById(`player-icon-${player.id}`);
+                const progressBar = document.getElementById(`player-progress-${player.id}`);
+
+                if (playerIconOnTrack && progressBar) {
+                    const trackContainer = playerIconOnTrack.parentElement;
+                    if(player.isDead) {
+                        playerIconOnTrack.src = player.deadIcon;
+                        playerIconOnTrack.classList.remove('animate-jump');
+                        playerIconOnTrack.style.filter = 'grayscale(100%)';
+                    } else {
+                        const iconWidthPercentage = (playerIconOnTrack.offsetWidth / trackContainer.offsetWidth) * 100 || 0;
+                        playerIconOnTrack.style.left = `${player.progress - (player.progress / 100) * iconWidthPercentage}%`;
+                        progressBar.style.width = `${player.progress}%`;
+                        if (!playerIconOnTrack.classList.contains('animate-jump')) {
+                            playerIconOnTrack.classList.add('animate-jump');
+                        }
+                    }
+                }
+            }
+
+            function checkGameEndCondition() {
+                const livingPlayers = connectedPlayers.filter(p => !p.isDead);
+                const winner = livingPlayers.find(p => p.progress >= 100);
+
+                if (winner) {
+                    endGame([winner]);
+                } else if (livingPlayers.length === 0 && connectedPlayers.length > 0) {
+                    endGame([]);
+                }
+            }
+
+            function endGame(winners) {
+                if (gameLoopInterval) clearInterval(gameLoopInterval);
+                if (redGreenCycleInterval) clearTimeout(redGreenCycleInterval);
+                if (bombCountdownInterval) clearInterval(bombCountdownInterval);
+                
+                isMovingAllowed = false;
+                isGameStopped = true;
+                stopGameButton.classList.add('hidden');
+                startGameButton.classList.remove('hidden');
+                
+                // Send final status message for each player
+                connectedPlayers.forEach((player, index) => {
+                    const isWinner = winners.some(w => w.id === player.id);
+                    const playerColorHex = sliderColors[index % sliderColors.length];
+                    const playerColorRGB = hexToRgb(playerColorHex);
+                    const finalStatus = isWinner ? "winner" : (player.isDead ? "eliminated" : "game_over");
+
+                    const payload = {
+                        light: 'red',
+                        player_id: player.id,
+                        progress: Math.round(player.progress),
+                        status: finalStatus,
+                        player_color: playerColorRGB || [255, 255, 255]
+                    };
+                    sendWebSocketMessage(payload);
+                });
+
+                showGameResults(winners);
+            }
+
+            // Function to start the Red Light, Green Light cycle
+            function startRedGreenCycle() {
+                let phase = 'green';
+                const minGreenDuration = 1000;
+                const maxGreenDuration = 1500;
+                const minRedDuration = 1000;
+                const maxRedDuration = 1500;
+                const reactionTime = 500; // Pause before green light
+
+                const setNextCycle = () => {
+                    if (isGameStopped) return; // Stop cycle if game is stopped
+                    let duration;
+                    if (phase === 'green') {
+                        // --- Switch to RED ---
+                        greenLightBar.classList.remove('active');
+                        redLightBar.classList.add('active');
+                        isMovingAllowed = false;
+                        redLightTimestamp = Date.now();
+                        console.log(`[${new Date().toLocaleTimeString()}] RED LIGHT! Stop moving.`);
+                        connectedPlayers.forEach(p => sendPlayerStateUpdate(p));
+
+                        phase = 'red';
+                        duration = Math.random() * (maxRedDuration - minRedDuration) + minRedDuration;
+                        redGreenCycleInterval = setTimeout(setNextCycle, duration);
+
+                    } else { // phase is 'red'
+                        // --- Switch to GREEN after a delay ---
+                        console.log(`[${new Date().toLocaleTimeString()}] Get ready...`);
+                        
+                        setTimeout(() => {
+                            if (isGameStopped) return; // Check again before switching
+                            redLightBar.classList.remove('active');
+                            greenLightBar.classList.add('active');
+                            isMovingAllowed = true;
+                            console.log(`[${new Date().toLocaleTimeString()}] GREEN LIGHT! You can move.`);
+                            connectedPlayers.forEach(p => sendPlayerStateUpdate(p));
+                            phase = 'green';
+                            duration = Math.random() * (maxGreenDuration - minGreenDuration) + minGreenDuration;
+                            redGreenCycleInterval = setTimeout(setNextCycle, duration);
+                        }, reactionTime);
+                    }
+                };
+                setNextCycle();
+            }
+
+            // Function for the initial countdown
+            function startInitialCountdown(duration) {
+                let timeLeft = duration;
+                countdownTimer.textContent = timeLeft;
+                countdownTimer.classList.remove('hidden');
+
+                countdownInterval = setInterval(() => {
+                    timeLeft--;
+                    countdownTimer.textContent = timeLeft;
+
+                    if (timeLeft <= 0) {
+                        clearInterval(countdownInterval);
+                        countdownTimer.classList.add('hidden');
+                        
+                        goAnimationText.classList.remove('hidden');
+                        goAnimationText.classList.add('animate-go');
+
+                        setTimeout(() => {
+                            goAnimationText.classList.add('hidden');
+                            goAnimationText.classList.remove('animate-go');
+                            startRedGreenCycle();
+                            startBombCountdown(30); // Game duration
+                            gameLoopInterval = setInterval(checkGameEndCondition, 100);
+                        }, 1000);
+                    }
+                }, 1000);
+            }
+
+            // Function for the bomb countdown
+            function startBombCountdown(duration) {
+                let timeLeft = duration;
+                bombCountdownTimer.textContent = `Time Left: ${formatTime(timeLeft)}`;
+                bombCountdownTimer.classList.remove('hidden');
+
+                bombCountdownInterval = setInterval(() => {
+                    timeLeft--;
+                    bombCountdownTimer.textContent = `Time Left: ${formatTime(timeLeft)}`;
+
+                    if (timeLeft <= 0) {
+                        clearInterval(bombCountdownInterval);
+                        bombCountdownTimer.classList.add('hidden');
+                        endGame([]); // No winners if time runs out
+                    }
+                }, 1000);
+            }
+
+            // Function to show game results
+            function showGameResults(winners) {
+                let resultsHtml = `<h2 class="text-5xl font-bold text-red-600 mb-8">Game Over!</h2>`;
+
+                if (winners && winners.length > 0) {
+                    resultsHtml += `<h3 class="text-3xl font-semibold text-green-500 mb-4">Winners:</h3><ul class="mb-6 space-y-3">`;
+                    winners.forEach((player, index) => {
+                        resultsHtml += `<li class="text-2xl flex items-center justify-center space-x-3">
+                            <span class="font-extrabold text-yellow-300">${index + 1}.</span>
+                            <img src="${player.icon}" class="w-10 h-10 rounded-full object-cover border-2 border-green-500">
+                            <span>${player.name}</span>
+                        </li>`;
+                    });
+                    resultsHtml += `</ul>`;
+                } else {
+                    resultsHtml += `<p class="text-2xl text-yellow-400 mb-6">No one survived!</p>`;
+                }
+
+                resultsHtml += `
+                    <button id="play-again-button" class="bg-red-700 hover:bg-red-800 text-white font-bold py-4 px-8 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-red-500 focus:ring-opacity-50 text-2xl">
+                        Play Again
+                    </button>
+                `;
+
+                const messageBox = document.createElement('div');
+                messageBox.className = "fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50";
+                messageBox.innerHTML = `<div class="bg-gray-800 p-10 rounded-lg shadow-xl text-center text-white w-full max-w-2xl overflow-y-auto max-h-[90vh]">${resultsHtml}</div>`;
+                document.body.appendChild(messageBox);
+
+                document.getElementById('play-again-button').addEventListener('click', () => {
+                    messageBox.remove();
+                    handleGameSelect(lobbyGameTitle.textContent);
+                });
+            }
+
+            // Function to reset the game state
+            function resetGame() {
+                connectedPlayers.forEach(player => {
+                    player.progress = 0;
+                    player.isDead = false;
+                });
+
+                if (gameLoopInterval) clearInterval(gameLoopInterval);
+                if (countdownInterval) clearInterval(countdownInterval);
+                if (redGreenCycleInterval) clearTimeout(redGreenCycleInterval);
+                if (bombCountdownInterval) clearInterval(bombCountdownInterval);
+                
+                countdownTimer.classList.add('hidden');
+                bombCountdownTimer.classList.add('hidden');
+                goAnimationText.classList.add('hidden');
+                goAnimationText.classList.remove('animate-go');
+                redLightBar.classList.remove('active');
+                greenLightBar.classList.remove('active');
+                lastSentPlayerState = {}; // Clear the cache on game reset
+            }
+            
+            // Centralized function to start or restart the game
+            function triggerGameStart() {
+                console.log(`Starting/Restarting game: ${lobbyGameTitle.textContent}`);
+
+                // Reset game logic and UI
+                resetGame();
+                
+                // Send "game_started" message to all players
+                connectedPlayers.forEach((player, index) => {
+                    const playerColorHex = sliderColors[index % sliderColors.length];
+                    const playerColorRGB = hexToRgb(playerColorHex);
+                    const payload = {
+                        light: 'red',
+                        player_id: player.id,
+                        progress: 0,
+                        status: 'game_started',
+                        player_color: playerColorRGB || [255, 255, 255]
+                    };
+                    sendWebSocketMessage(payload);
+                    // Also prime the cache with the initial state
+                    lastSentPlayerState[player.id] = payload; 
+                });
+
+                populatePlayerSliders();
+                startInitialCountdown(3);
+
+                // Set button states
+                isGameStopped = false;
+                stopGameButton.classList.remove('hidden');
+                startGameButton.classList.add('hidden');
+            }
+
+            // Stops the game completely
+            function stopGame() {
+                if (isGameStopped) return;
+                console.log("Stopping game...");
+                isGameStopped = true;
+
+                // Stop all intervals
+                if (gameLoopInterval) clearInterval(gameLoopInterval);
+                if (countdownInterval) clearInterval(countdownInterval);
+                if (redGreenCycleInterval) clearTimeout(redGreenCycleInterval);
+                if (bombCountdownInterval) clearInterval(bombCountdownInterval);
+
+                // Hide game elements
+                countdownTimer.classList.add('hidden');
+                bombCountdownTimer.classList.add('hidden');
+                goAnimationText.classList.add('hidden');
+                redLightBar.classList.remove('active');
+                greenLightBar.classList.remove('active');
+
+                // Send "game_stopped" message to all players
+                connectedPlayers.forEach((player, index) => {
+                    const playerColorHex = sliderColors[index % sliderColors.length];
+                    const playerColorRGB = hexToRgb(playerColorHex);
+                    const payload = {
+                        light: 'red',
+                        player_id: player.id,
+                        progress: Math.round(player.progress),
+                        status: 'game_stopped',
+                        player_color: playerColorRGB || [255, 255, 255]
+                    };
+                    sendWebSocketMessage(payload);
+                });
+
+                // Toggle button visibility
+                stopGameButton.classList.add('hidden');
+                startGameButton.classList.remove('hidden');
+            }
+
+            // Starts the game from a stopped state
+            function startGameFromStop() {
+                if (!isGameStopped) return;
+                triggerGameStart();
+            }
+
+            // Function to handle card clicks and transition to lobby
+            function handleGameSelect(gameName) {
+                mainMenuScreen.classList.add('hidden');
+                gameLobbyScreen.classList.remove('hidden');
+
+                const selectedGame = games.find(game => game.name === gameName);
+                if (selectedGame) {
+                    lobbyGameTitle.textContent = gameName;
+                    lobbyGameDescription.textContent = selectedGame.description;
+                }
+                
+                triggerGameStart();
+            }
+
+            // Function to go back to the main menu
+            function goBackToMainMenu() {
+                gameLobbyScreen.classList.add('hidden');
+                mainMenuScreen.classList.remove('hidden');
+                stopGame(); // Ensure game is fully stopped
+                isGameStopped = false; // Reset flag
+            }
+
+            // Function to create and append game cards to the DOM
+            function createGameCards() {
+                const container = document.getElementById('game-cards-container');
+
+                games.forEach((game, index) => {
+                    const cardContainer = document.createElement('div');
+                    cardContainer.className = `card-container flex-1 min-w-[16rem] max-w-[16rem] h-[22rem] perspective-1000 animate-fade-in-up animate-float`;
+                    cardContainer.style.animationDelay = `${0.8 + (index * 0.2)}s`;
+
+                    const cardInner = document.createElement('div');
+                    cardInner.className = `card-inner w-full h-full relative text-center transform-style-3d cursor-pointer rounded-xl shadow-xl`;
+
+                    const cardFront = document.createElement('div');
+                    cardFront.className = `card-face card-front bg-red-700 flex items-center justify-center rounded-xl p-2`;
+                    const frontImg = document.createElement('img');
+                    frontImg.src = game.frontImage;
+                    frontImg.alt = `${game.name} Front`;
+                    frontImg.className = "w-full h-full object-cover rounded-lg";
+                    frontImg.onerror = function() { this.src = 'https://placehold.co/256x352/FF0000/FFFFFF?text=Image+Error'; };
+                    cardFront.appendChild(frontImg);
+
+                    const cardBack = document.createElement('div');
+                    cardBack.className = `card-face card-back bg-red-800 flex flex-col items-center justify-center rounded-xl p-2`;
+                    const backImg = document.createElement('img');
+                    backImg.src = game.backImage;
+                    backImg.alt = `${game.name} Back`;
+                    backImg.className = "w-full h-full object-cover rounded-lg";
+                    backImg.onerror = function() { this.src = 'https://placehold.co/256x352/0A0A0A/FF0000?text=Image+Error'; };
+                    cardBack.appendChild(backImg);
+
+                    const backTextOverlay = document.createElement('div');
+                    backTextOverlay.className = "absolute inset-0 flex flex-col items-center justify-center p-6 bg-black bg-opacity-50 rounded-xl text-white";
+                    backTextOverlay.innerHTML = `<p class="text-2xl font-semibold mb-6 text-center">${game.description}</p>`;
+                    cardBack.appendChild(backTextOverlay);
+
+                    cardInner.appendChild(cardFront);
+                    cardInner.appendChild(cardBack);
+                    cardContainer.appendChild(cardInner);
+
+                    cardContainer.addEventListener('mouseenter', () => cardContainer.classList.add('flipped'));
+                    cardContainer.addEventListener('mouseleave', () => cardContainer.classList.remove('flipped'));
+                    cardContainer.addEventListener('click', () => handleGameSelect(game.name));
+
+                    container.appendChild(cardContainer);
+                });
+            }
+
+            // Event Listeners
+            backButton.addEventListener('click', goBackToMainMenu);
+            stopGameButton.addEventListener('click', stopGame);
+            startGameButton.addEventListener('click', startGameFromStop);
+
+            // Initial calls
+            createGameCards();
+            connectWebSocket(); // Establish WebSocket connection on load
+        });
+    </script>
+</body>
+</html>
