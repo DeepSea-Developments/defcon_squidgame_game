@@ -1,24 +1,27 @@
 /**
  * @file firmware_controls.ino
  * @author Gemini
- * @brief Refactored Arduino firmware for a shake-detecting game controller with JSON support and TFT screen.
- * @version 4.1
+ * @brief Refactored Arduino firmware for a shake-detecting game controller with JSON support and a flicker-free TFT screen.
+ * @version 4.6
  * @date 2025-08-08
  *
  * @details This firmware controls a device with an ADXL345 accelerometer, a vibration motor,
  * an Adafruit NeoPixel LED strip, and a TFT screen. It uses FreeRTOS to handle serial commands,
- * accelerometer readings, LED animations, and TFT screen updates concurrently. It can parse 
- * JSON commands to control a "red light/green light" state, which is now reflected on the TFT screen
- * and the LED progress bar. Player progress is shown on the TFT screen with a colored circle.
+ * accelerometer readings, LED animations, and TFT screen updates concurrently. It can parse
+ * JSON commands to control a "red light/green light" state. The TFT screen now displays a
+ * colored circle representing the player.
+ *
+ * This version uses a TFT_eSprite (double buffering) to eliminate screen flicker during updates.
  *
  * Core functionalities:
  * 1.  **Accelerometer-based Shake Detection:** Continuously reads from the ADXL345
  * to calculate a real-time shake score.
  * 2.  **Haptic Feedback:** Provides specific vibration patterns for win and lose events.
  * 3.  **JSON Command Parsing:** The serial task can parse JSON strings to get game
- * state information like light color, player progress, progress bar color, and game status.
- * 4.  **TFT Screen Control:** A dedicated RTOS task updates the screen to green for a green light
- * and red for a red light, and displays a central, larger circle with a black border representing player progress.
+ * state information like light color and game status.
+ * 4.  **Flicker-Free TFT Screen Control:** A dedicated RTOS task updates the screen using a
+ * sprite (in-memory buffer) to prevent flickering. It displays a red/green background
+ * indicating the game state, with a central circle representing the player's color.
  * 5.  **LED Progress Bar:** The entire LED strip shows player progress, with the color indicating the current light state (red/green).
  * 6.  **RTOS-based Operation:** Uses three RTOS tasks for concurrent operation of serial
  * command listening, LED animation, and TFT screen management.
@@ -50,6 +53,11 @@ uint8_t screen_rotation;
 
 #include <TFT_eSPI.h>
 TFT_eSPI tft = TFT_eSPI(SCREEN_WIDTH, SCREEN_HEIGHT);
+TFT_eSprite spr = TFT_eSprite(&tft); // Sprite for flicker-free drawing
+
+// --- Image assets and definitions ---
+// Note: These are no longer used by the TFT task but are kept for potential future use.
+#include "player_images.h"
 
 // --- Pin and LED Configuration ---
 #define LED_PIN 43
@@ -74,13 +82,15 @@ TaskHandle_t tftTaskHandle; // Handle for the new TFT task
 
 // --- Game State Variables (volatile for thread-safety) ---
 volatile bool isGreenLight = false;
-volatile int playerProgress = 0;           // Player progress (0-100)
-volatile uint32_t playerProgressColor = 0; // Stores the packed color for NeoPixels
+volatile bool isPlayerAlive = true;                     // Player status, true by default
+volatile int playerProgress = 0;                        // Player progress (0-100)
+volatile uint32_t playerProgressColor = 0;              // Stores the packed color for NeoPixels
 volatile uint8_t playerR = 0, playerG = 0, playerB = 0; // Stores color components for TFT
 
 // --- Animation State Machine ---
 enum AnimationState
 {
+  ANIM_IDLE,
   ANIM_DEFAULT,
   ANIM_WIN,
   ANIM_LOSE,
@@ -98,6 +108,7 @@ void runAnimations();
 void updateProgressBar();
 void winAnimation();
 void loseAnimation();
+void drawImageWithTransparency(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t *img, uint16_t transparentColor);
 uint32_t Wheel(byte WheelPos);
 
 // --- Setup Function ---
@@ -112,10 +123,12 @@ void setup()
   strip.setBrightness(150);
   strip.show(); // Initialize all pixels to 'off'
 
-  // Initialize TFT Screen
+  // Initialize TFT Screen and Sprite
   tft.begin();
   tft.setRotation(screen_rotation);
-  tft.fillScreen(TFT_RED); // Start with red screen, as isGreenLight is initially false
+  spr.createSprite(SCREEN_WIDTH, SCREEN_HEIGHT); // Create the sprite buffer in memory
+  spr.setSwapBytes(true);                        // Swap byte order for 16-bit image data from arrays
+  tft.fillScreen(TFT_RED);                       // Start with red screen, as isGreenLight is initially false
 
   // Initialize Accelerometer
   adxl.powerOn();
@@ -265,50 +278,69 @@ void serialTask(void *pvParameters)
 }
 
 /**
- * @brief RTOS task to manage the TFT screen color and display player progress.
+ * @brief RTOS task to manage the TFT screen. It displays a red/green background
+ * based on the game state and a central circle with the player's color.
  */
 void tftTask(void *pvParameters)
 {
   bool lastKnownLightState = !isGreenLight;
-  int lastPlayerProgress = -1;
-  uint32_t lastPlayerProgressColor = -1;
+
+  bool lastPlayerAliveState = !isPlayerAlive;
+
+  uint8_t lastR = 0, lastG = 0, lastB = 0; // Track last player color
 
   for (;;)
   {
-    // Redraw if light state, progress, or color has changed
-    if (isGreenLight != lastKnownLightState || playerProgress != lastPlayerProgress || playerProgressColor != lastPlayerProgressColor)
-    {
-      // 1. Fill background based on light state
-      uint16_t bgColor = isGreenLight ? TFT_GREEN : TFT_RED;
-      tft.fillScreen(bgColor);
+    // Redraw if light state or player color changes
+    bool needsRedraw = (isGreenLight != lastKnownLightState) ||
+                       (playerR != lastR) || (playerG != lastG) || (playerB != lastB) || (isPlayerAlive != lastPlayerAliveState);
 
-      // 2. Draw player progress circle if a color has been assigned
-      if (playerProgressColor != 0)
+    if (needsRedraw)
+    {
+      // 1. Fill sprite background based on light state (red/green)
+      uint16_t bgColor = isGreenLight ? TFT_GREEN : TFT_RED;
+      spr.fillSprite(bgColor);
+
+      // 2. Calculate circle properties
+      int16_t centerX = SCREEN_WIDTH / 2;
+      int16_t centerY = SCREEN_HEIGHT / 2;
+      int16_t radius = (SCREEN_WIDTH * 0.7) / 2; // Diameter is 70% of screen width
+
+      // 3. Draw the filled circle with the player's color
+      uint16_t playerColor565 = tft.color565(playerR, playerG, playerB);
+      spr.fillCircle(centerX, centerY, radius, playerColor565);
+
+      // 4. Draw alive/dead image in the center of the sprite using a custom function
+      int16_t x_pos = (SCREEN_WIDTH - (IMG_WIDTH-10)) / 2;
+      int16_t y_pos = (SCREEN_HEIGHT - (IMG_HEIGHT-10)) / 2;
+
+      if (isPlayerAlive)
       {
-        // Circle radius grows with progress, starting larger.
-        int16_t radius = map(70, 0, 100, 30, SCREEN_WIDTH / 2);
-        uint16_t circleColor = tft.color565(playerR, playerG, playerB);
-        
-        // Draw black edge for the circle
-        tft.fillCircle(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, radius + 2, TFT_BLACK);
-        // Draw the player's progress circle
-        tft.fillCircle(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, radius, circleColor);
+        drawImageWithTransparency(x_pos, y_pos, IMG_WIDTH, IMG_HEIGHT, alive_img, TRANSPARENT_COLOR);
       }
+      else
+      {
+        drawImageWithTransparency(x_pos, y_pos, IMG_WIDTH, IMG_HEIGHT, dead_img, TRANSPARENT_COLOR);
+      }
+
+      // 4. Push the completed sprite to the screen in one go
+      spr.pushSprite(0, 0);
 
       // Update state trackers
       lastKnownLightState = isGreenLight;
-      lastPlayerProgress = playerProgress;
-      lastPlayerProgressColor = playerProgressColor;
+      lastPlayerAliveState = isPlayerAlive;
+      lastR = playerR;
+      lastG = playerG;
+      lastB = playerB;
     }
-    
+
     // Wait for a short period before checking again.
     vTaskDelay(pdMS_TO_TICKS(50));
   }
 }
 
-
 /**
- * @brief RTOS task to manage and display LED animations.
+ * @brief RTOS task to manage and display LED animations and player status.
  */
 void animationTask(void *pvParameters)
 {
@@ -327,14 +359,16 @@ void animationTask(void *pvParameters)
       else if (strcmp(receivedCommand, "ELIMINATED") == 0)
       {
         currentAnimation = ANIM_LOSE;
+        isPlayerAlive = false; // Player is eliminated
       }
       else if (strcmp(receivedCommand, "GAME_OVER") == 0)
       {
-        currentAnimation = ANIM_GAME_OVER;
+        //currentAnimation = ANIM_GAME_OVER;
       }
       else if (strcmp(receivedCommand, "NEW_GAME") == 0 || strcmp(receivedCommand, "GAME_STARTED") == 0)
       {
         winnerReceived = false;
+        isPlayerAlive = true;    // Player is alive for new game
         playerProgress = 0;      // Reset progress for new game
         playerProgressColor = 0; // Reset the progress color
         currentAnimation = ANIM_DEFAULT;
@@ -364,13 +398,15 @@ void runAnimations()
 {
   switch (currentAnimation)
   {
+  case ANIM_IDLE:
+    break;
   case ANIM_WIN:
     winAnimation();
-    currentAnimation = ANIM_DEFAULT; // Revert after one run
+    currentAnimation = ANIM_IDLE; // Revert after one run
     break;
   case ANIM_LOSE:
     loseAnimation();
-    currentAnimation = ANIM_DEFAULT; // Revert after one run
+    currentAnimation = ANIM_IDLE; // Revert after one run
     break;
   case ANIM_GAME_OVER:
     if (!winnerReceived)
@@ -436,6 +472,7 @@ int calculateShakeScore(int x, int y, int z)
  */
 void winAnimation()
 {
+  digitalWrite(VIBRATION_PIN, HIGH); // Start vibration
   // Rainbow cycle part
   for (int j = 0; j < 256 * 2; j++)
   {
@@ -446,18 +483,7 @@ void winAnimation()
     strip.show();
     vTaskDelay(pdMS_TO_TICKS(5));
   }
-  // Flashing lights with alternating vibration
-  for (int i = 0; i < 3; i++)
-  {
-    digitalWrite(VIBRATION_PIN, HIGH);
-    strip.fill(strip.Color(255, 255, 255));
-    strip.show();
-    vTaskDelay(pdMS_TO_TICKS(100));
-    digitalWrite(VIBRATION_PIN, LOW);
-    strip.clear();
-    strip.show();
-    vTaskDelay(pdMS_TO_TICKS(100));
-  }
+  digitalWrite(VIBRATION_PIN, LOW); // Stop vibration
 }
 
 /**
@@ -485,8 +511,6 @@ void loseAnimation()
     }
   }
   digitalWrite(VIBRATION_PIN, LOW); // Stop vibration
-  strip.clear();
-  strip.show();
 }
 
 /**
@@ -506,4 +530,28 @@ uint32_t Wheel(byte WheelPos)
   }
   WheelPos -= 170;
   return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+}
+
+/**
+ * @brief Draws a 16-bit image from an array onto the sprite, skipping a specified transparent color.
+ * @param x The x-coordinate of the top-left corner.
+ * @param y The y-coordinate of the top-left corner.
+ * @param w The width of the image.
+ * @param h The height of the image.
+ * @param img Pointer to the image data array (16-bit colors).
+ * @param transparentColor The color to treat as transparent.
+ */
+void drawImageWithTransparency(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t *img, uint16_t transparentColor)
+{
+  for (int16_t j = 0; j < h; j++)
+  {
+    for (int16_t i = 0; i < w; i++)
+    {
+      uint16_t color = img[j * w + i];
+      if (color != transparentColor)
+      {
+        spr.drawPixel(x + i, y + j, color);
+      }
+    }
+  }
 }

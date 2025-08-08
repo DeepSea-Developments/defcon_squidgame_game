@@ -193,8 +193,14 @@
 
         <div id="game-cards-container" class="flex flex-row justify-center items-center gap-8 w-full max-w-6xl pb-4 overflow-x-hidden flex-grow pt-20">
             </div>
+        
+        <div class="flex flex-row justify-center items-center gap-4 p-4 mt-auto">
+             <button id="settings-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-300">
+                Settings
+            </button>
+        </div>
 
-        <div class="flex flex-row justify-center items-center gap-8 p-4 mt-auto">
+        <div class="flex flex-row justify-center items-center gap-8 p-4">
             <img src="assets/sponsor1.png" alt="Sponsor 1" class="w-24 h-24 rounded-full shadow-lg object-contain bg-white p-2" onerror="this.src='https://placehold.co/96x96/FFFFFF/000000?text=S1'">
             <img src="assets/sponsor2.png" alt="Sponsor 2" class="w-24 h-24 rounded-full shadow-lg object-contain bg-white p-2" onerror="this.src='https://placehold.co/96x96/FFFFFF/000000?text=S2'">
             <img src="assets/sponsor3.png" alt="Sponsor 3" class="w-24 h-24 rounded-full shadow-lg object-contain bg-white p-2" onerror="this.src='https://placehold.co/96x96/FFFFFF/000000?text=S3'">
@@ -239,6 +245,47 @@
             </div>
         </div>
     </div>
+    
+    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-xl text-white w-full max-w-lg">
+            <h2 class="text-3xl font-bold text-red-600 mb-6">Game Settings</h2>
+            <div class="space-y-4">
+                <div>
+                    <label for="reaction-time" class="block text-lg font-medium text-gray-300">Reaction Time (ms)</label>
+                    <input type="number" id="reaction-time" class="w-full bg-gray-700 text-white rounded-md p-2 mt-1 border border-gray-600 focus:ring-red-500 focus:border-red-500">
+                </div>
+                <div>
+                    <label for="grace-period" class="block text-lg font-medium text-gray-300">Grace Period (ms)</label>
+                    <input type="number" id="grace-period" class="w-full bg-gray-700 text-white rounded-md p-2 mt-1 border border-gray-600 focus:ring-red-500 focus:border-red-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="min-green-duration" class="block text-lg font-medium text-gray-300">Min Green (ms)</label>
+                        <input type="number" id="min-green-duration" class="w-full bg-gray-700 text-white rounded-md p-2 mt-1 border border-gray-600 focus:ring-red-500 focus:border-red-500">
+                    </div>
+                    <div>
+                        <label for="max-green-duration" class="block text-lg font-medium text-gray-300">Max Green (ms)</label>
+                        <input type="number" id="max-green-duration" class="w-full bg-gray-700 text-white rounded-md p-2 mt-1 border border-gray-600 focus:ring-red-500 focus:border-red-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="min-red-duration" class="block text-lg font-medium text-gray-300">Min Red (ms)</label>
+                        <input type="number" id="min-red-duration" class="w-full bg-gray-700 text-white rounded-md p-2 mt-1 border border-gray-600 focus:ring-red-500 focus:border-red-500">
+                    </div>
+                    <div>
+                        <label for="max-red-duration" class="block text-lg font-medium text-gray-300">Max Red (ms)</label>
+                        <input type="number" id="max-red-duration" class="w-full bg-gray-700 text-white rounded-md p-2 mt-1 border border-gray-600 focus:ring-red-500 focus:border-red-500">
+                    </div>
+                </div>
+            </div>
+            <div class="mt-8 flex justify-end space-x-4">
+                <button id="close-settings-button" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Close</button>
+                <button id="save-settings-button" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Save</button>
+            </div>
+        </div>
+    </div>
+
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -250,18 +297,18 @@
                     frontImage: 'assets/red_light_front.webp', // Local path for front image
                     backImage: 'assets/cards_back.jfif' // Local path for back image
                 },
-                {
-                    name: 'Dalgona',
-                    description: 'Carve out the shape without breaking it!',
-                    frontImage: 'assets/dalgona_front.jpg', // Local path for front image
-                    backImage: 'assets/cards_back.jfif' // Local path for back image
-                },
-                {
-                    name: 'Rock Paper Scissors Minus One',
-                    description: 'The last one standing wins!',
-                    frontImage: 'assets/rps_minus_one_front.jfif', // Local path for front image
-                    backImage: 'assets/cards_back.jfif' // Local path for back image
-                },
+                // {
+                //     name: 'Dalgona',
+                //     description: 'Carve out the shape without breaking it!',
+                //     frontImage: 'assets/dalgona_front.jpg', // Local path for front image
+                //     backImage: 'assets/cards_back.jfif' // Local path for back image
+                // },
+                // {
+                //     name: 'Rock Paper Scissors Minus One',
+                //     description: 'The last one standing wins!',
+                //     frontImage: 'assets/rps_minus_one_front.jfif', // Local path for front image
+                //     backImage: 'assets/cards_back.jfif' // Local path for back image
+                // },
             ];
 
             // Get references to screen elements
@@ -280,6 +327,12 @@
             const goAnimationText = document.getElementById('go-animation-text');
             const bombCountdownTimer = document.getElementById('bomb-countdown-timer');
             
+            // Settings Modal Elements
+            const settingsButton = document.getElementById('settings-button');
+            const settingsModal = document.getElementById('settings-modal');
+            const closeSettingsButton = document.getElementById('close-settings-button');
+            const saveSettingsButton = document.getElementById('save-settings-button');
+
             // Sample players data (up to 4)
             const connectedPlayers = [
                 { id: 1, name: 'Player 1', icon: 'assets/player1.jfif', deadIcon: 'assets/dead_player.jfif', isDead: false, progress: 0 },
@@ -289,16 +342,26 @@
             ];
 
             // Define slider colors
-            const sliderColors = ['#3B82F6', '#EF4444', '#A855F7', '#F59E0B']; // Blue, Red, Purple, Yellow
+            const sliderColors = ['#0000FF', '#FF0000', '#00FF00', '#FFFF00']; // Blue, Red, Purple, Yellow
+            
+            // Game settings with default values
+            let gameSettings = {
+                reactionTime: 500,
+                gracePeriod: 500,
+                minGreenDuration: 1000,
+                maxGreenDuration: 1500,
+                minRedDuration: 1000,
+                maxRedDuration: 1500,
+            };
 
             let gameLoopInterval;
             let countdownInterval; 
             let redGreenCycleInterval;
             let bombCountdownInterval;
             let redLightTimestamp = 0;
-            const gracePeriod = 500; // 150ms grace period
             let isMovingAllowed = false; // Global flag to control player movement
             let isGameStopped = false; // Global flag for stop/start functionality
+            let isGameActive = false; // Flag to check if game is running (post-countdown)
             let lastSentPlayerState = {}; // Cache for last sent player state to avoid redundant messages
 
             // --- WebSocket for Game Server Communication ---
@@ -439,18 +502,24 @@
 
             function updatePlayerProgress(playerId, increment) {
                  const player = connectedPlayers.find(p => p.id === playerId);
-                 if (!player || player.isDead || player.progress >= 100) return;
+                 if (!player || player.isDead || player.progress >= 100 || increment <= 0) return;
+
+                 // Only allow player progress if the game is active (post-countdown)
+                 if (!isGameActive) {
+                    return;
+                 }
 
                  const oldProgress = player.progress;
                  const oldIsDead = player.isDead;
 
-                 if (isMovingAllowed || Date.now() - redLightTimestamp < gracePeriod) {
-                    if(increment > 0) {
-                        player.progress += increment;
-                        if (player.progress > 100) player.progress = 100;
-                    }
-                 } else if (increment > 0) {
+                 // Check if movement is allowed
+                 const isMovementPenaltyActive = !isMovingAllowed && (Date.now() - redLightTimestamp >= gameSettings.gracePeriod);
+
+                 if (isMovementPenaltyActive) {
                     player.isDead = true;
+                 } else {
+                    player.progress += increment;
+                    if (player.progress > 100) player.progress = 100;
                  }
 
                  updatePlayerUI(player);
@@ -499,6 +568,7 @@
                 
                 isMovingAllowed = false;
                 isGameStopped = true;
+                isGameActive = false;
                 stopGameButton.classList.add('hidden');
                 startGameButton.classList.remove('hidden');
                 
@@ -525,14 +595,9 @@
             // Function to start the Red Light, Green Light cycle
             function startRedGreenCycle() {
                 let phase = 'green';
-                const minGreenDuration = 1000;
-                const maxGreenDuration = 1500;
-                const minRedDuration = 1000;
-                const maxRedDuration = 1500;
-                const reactionTime = 500; // Pause before green light
 
                 const setNextCycle = () => {
-                    if (isGameStopped) return; // Stop cycle if game is stopped
+                    if (isGameStopped) return;
                     let duration;
                     if (phase === 'green') {
                         // --- Switch to RED ---
@@ -544,7 +609,7 @@
                         connectedPlayers.forEach(p => sendPlayerStateUpdate(p));
 
                         phase = 'red';
-                        duration = Math.random() * (maxRedDuration - minRedDuration) + minRedDuration;
+                        duration = Math.random() * (gameSettings.maxRedDuration - gameSettings.minRedDuration) + gameSettings.minRedDuration;
                         redGreenCycleInterval = setTimeout(setNextCycle, duration);
 
                     } else { // phase is 'red'
@@ -559,9 +624,9 @@
                             console.log(`[${new Date().toLocaleTimeString()}] GREEN LIGHT! You can move.`);
                             connectedPlayers.forEach(p => sendPlayerStateUpdate(p));
                             phase = 'green';
-                            duration = Math.random() * (maxGreenDuration - minGreenDuration) + minGreenDuration;
+                            duration = Math.random() * (gameSettings.maxGreenDuration - gameSettings.minGreenDuration) + gameSettings.minGreenDuration;
                             redGreenCycleInterval = setTimeout(setNextCycle, duration);
-                        }, reactionTime);
+                        }, gameSettings.reactionTime);
                     }
                 };
                 setNextCycle();
@@ -587,8 +652,9 @@
                         setTimeout(() => {
                             goAnimationText.classList.add('hidden');
                             goAnimationText.classList.remove('animate-go');
+                            isGameActive = true; // Game officially starts now
                             startRedGreenCycle();
-                            startBombCountdown(30); // Game duration
+                            startBombCountdown(15); // Game duration
                             gameLoopInterval = setInterval(checkGameEndCondition, 100);
                         }, 1000);
                     }
@@ -667,6 +733,7 @@
                 redLightBar.classList.remove('active');
                 greenLightBar.classList.remove('active');
                 lastSentPlayerState = {}; // Clear the cache on game reset
+                isGameActive = false; // Game is not active during reset/setup
             }
             
             // Centralized function to start or restart the game
@@ -706,6 +773,7 @@
                 if (isGameStopped) return;
                 console.log("Stopping game...");
                 isGameStopped = true;
+                isGameActive = false;
 
                 // Stop all intervals
                 if (gameLoopInterval) clearInterval(gameLoopInterval);
@@ -767,6 +835,34 @@
                 isGameStopped = false; // Reset flag
             }
 
+            // --- Settings Menu Functions ---
+            function openSettingsMenu() {
+                document.getElementById('reaction-time').value = gameSettings.reactionTime;
+                document.getElementById('grace-period').value = gameSettings.gracePeriod;
+                document.getElementById('min-green-duration').value = gameSettings.minGreenDuration;
+                document.getElementById('max-green-duration').value = gameSettings.maxGreenDuration;
+                document.getElementById('min-red-duration').value = gameSettings.minRedDuration;
+                document.getElementById('max-red-duration').value = gameSettings.maxRedDuration;
+                settingsModal.classList.remove('hidden');
+            }
+
+            function closeSettingsMenu() {
+                settingsModal.classList.add('hidden');
+            }
+
+            function saveSettings() {
+                gameSettings.reactionTime = parseInt(document.getElementById('reaction-time').value) || gameSettings.reactionTime;
+                gameSettings.gracePeriod = parseInt(document.getElementById('grace-period').value) || gameSettings.gracePeriod;
+                gameSettings.minGreenDuration = parseInt(document.getElementById('min-green-duration').value) || gameSettings.minGreenDuration;
+                gameSettings.maxGreenDuration = parseInt(document.getElementById('max-green-duration').value) || gameSettings.maxGreenDuration;
+                gameSettings.minRedDuration = parseInt(document.getElementById('min-red-duration').value) || gameSettings.minRedDuration;
+                gameSettings.maxRedDuration = parseInt(document.getElementById('max-red-duration').value) || gameSettings.maxRedDuration;
+                
+                console.log("Settings saved:", gameSettings);
+                closeSettingsMenu();
+            }
+
+
             // Function to create and append game cards to the DOM
             function createGameCards() {
                 const container = document.getElementById('game-cards-container');
@@ -818,6 +914,9 @@
             backButton.addEventListener('click', goBackToMainMenu);
             stopGameButton.addEventListener('click', stopGame);
             startGameButton.addEventListener('click', startGameFromStop);
+            settingsButton.addEventListener('click', openSettingsMenu);
+            closeSettingsButton.addEventListener('click', closeSettingsMenu);
+            saveSettingsButton.addEventListener('click', saveSettings);
 
             // Initial calls
             createGameCards();
